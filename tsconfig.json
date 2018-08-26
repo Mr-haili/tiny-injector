@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "module": "es6",
+    "target": "es5",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "sourceMap": true,
+    "declaration": true,
+    "lib": [
+      "dom",
+      "es6",
+      "es2015"
+    ],
+    "baseUrl": "./lib"
+  },
+  "include": [
+    "./lib/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts"
+  ],
+  "filesGlob": [
+    "**/*.ts"
+  ]
+}
