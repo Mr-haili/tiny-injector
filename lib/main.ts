@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import * as _ from './utils';
 
-// 几个常量
+// 几个常量定义
 const IDENT = function<T>(value: T): T { return value; };
 const EMPTY = <any[]>[];
 const CIRCULAR = IDENT;
@@ -14,17 +14,10 @@ function Injectable() {
   }
 }
 
-// 在我们的这个最简化版本中，所有的依赖都是类的构造函数
-export interface Provider {
-  token: Token // 类的构造器
-  deps?: Token[]; // 依赖项
-}
+// 一个类的Token就是这个类的构造函数
+type Token = { new(...args: any[]): any; };
 
-// 暂时我们只提供基于class的provider
-type Provider = ClassProvider;
-type Token = (...args: any[]) => any;
-
-// 就是最后做好的菜
+// 整个实例化的记录过程
 interface Record {
   fn: Function;
   deps: Token[];
@@ -32,36 +25,30 @@ interface Record {
 }
 
 /**
- * 平坦的注♂入器
- * 这是一个平坦的模型
+ * 在当前的实现中，所有依赖都存放在一个平坦的命名空间当中
  */
 export class FlatInjector {
   private _records: Map<Token, Record>;
 
-  constructor(providers: Provider[] = []) {
+  constructor(tokens: Token[] = []) {
     this._records = new Map<Token, Record>();
-    _.forEach(providers, provider => this.register(provider));
+    _.forEach(tokens, token => this.register(token));
   }
 
-  // 注册一个服务到当前injector
-  register(provider: Provider) {
-    const deps = computeDeps(provider);
+  register(token: Token) {
+    const deps = computeDeps(token);
     const record = {
-      fn: provider.provide,
+      fn: token,
       deps,
       value: EMPTY
     };
-    this._records.set(provider.provide, record);
+    this._records.set(token, record);
   }
 
-	// 获取你想要的服务, token似乎等价于provider中的provide
 	get(token: Token): any {
     return this._tryResolveToken(token);
 	}
 
-  /**
-   * record换value
-   */
   private _resolveRecord(record: Record): any {
     let value = record.value;
     if(value === EMPTY) {
@@ -76,8 +63,8 @@ export class FlatInjector {
     return value;
   }
 
-  // 通过token查询对应的record，并且利用这个record来解析出实例
-  private _tryResolveToken(token: any): any {
+  // 通过token查询对应的record，并且利用这个record来获取token对应的实例
+  private _tryResolveToken(token: Token): any {
     const record: Record | undefined = this._records.get(token);
     if(!record) {
       throw `依赖错误：${token}`;
@@ -97,20 +84,13 @@ export class FlatInjector {
 }
 
 /**
- * 对于一个Provider，通过这个工具函数计算出他的依赖
+ * 对于任何一个Token，通过这个工具函数计算出他的依赖
  * 并且没有显式的声明依赖那么我们通过元反射API查询一次依赖
  */
-function computeDeps(provider: Provider): Token[] {
-  const deps = Reflect.getMetadata(
-    "design:paramtypes",
-    provider.provide
-  ) || [];
+function computeDeps(token: Token): Token[] {
+  const deps = Reflect.getMetadata("design:paramtypes", token) || [];
   return deps;
 }
-
-
-
-
 
 
 /* DEEP♂DARK♂FANTASY */
@@ -151,99 +131,8 @@ class Student {
 console.log('-----------------');
 const injector = new FlatInjector();
 
-injector.register({
-  provide: Sun,
-  useClass: Sun
+[Sun, Bird, AK47, Student, Flower].forEach(token => {
+  injector.register(token)
 });
-injector.register({
-  provide: Flower,
-  useClass: Flower
-});
-injector.register({
-  provide: Bird,
-  useClass: Bird
-});
-injector.register({
-  provide: AK47,
-  useClass: AK47
-});
-injector.register({
-  provide: Student,
-  useClass: Student
-});
-injector.get(Student as any);
 
-// 负责各种与后台通信的API的请求调用
-class ApiService {
-  constructor() {
-  }
-}
-
-// 负责各种持久化存储的服务
-class StoreService {
-  constructor() {
-
-  }
-}
-
-// 主模块
-class MainModule {
-  private _apiService: ApiService;
-  private _storeService: StoreService;
-
-  constructor() {
-    this._apiService = new ApiService();
-    this._storeService = new StoreService();
-  }
-}
-
-// 后来随着业务越发复杂我们将主模块的业务，拆分成了几个专属的功能模块
-
-/**
- * 这个模块负责与用户相关的各种业务逻辑的实现
- */
-class UserService {
-  constructor(
-    private _apiService: ApiService,
-    private _stroeService: StoreService
-  ) { }
-}
-
-class ArticleService {
-  constructor(
-    private _apiService: ApiService,
-    private _storeService: StoreService,
-    private _userService: UserService
-  ) { }
-}
-
-/**
- * 现在我们的主模块变得更加复杂
- * TODO 依赖图
- */
-class MainModule1 {
-  private _apiService: ApiService;
-  private _storeService: StoreService;
-  private _userService: UserService;
-  private _articleService: ArticleService;
-
-  constructor() {
-    const apiService = new ApiService();
-    const storeService = new StoreService();
-    const userService = new UserService(apiService, storeService);
-    const articleService = new ArticleService(apiService, storeService, userService);
-
-    this._apiService = apiService;
-    this._storeService = storeService;
-    this._userService = userService;
-    this._articleService = articleService;
-  }
-}
-
-class MainModule2 {
-  
-}
-
-// TODO 这个讲解。。。比较难找到一个更好的例子了
-// 随着业务的发展，考虑模块和业务变得更加更加复杂的情况，这个时候我们又引入了3个新的服务用来做一些事情
-
+injector.get(Student);
